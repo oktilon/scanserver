@@ -1,0 +1,13 @@
+{
+  "name": "dnk_scan_server",
+  "version": "1.0.0",
+  "description": "DNK-Bilet scan-server",
+  "author": "Denis Stovbun <oktilon@gmail.com>",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.16.1"
+  }
+}
