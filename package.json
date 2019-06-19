@@ -7,6 +7,9 @@
   "scripts": {
     "start": "node server.js"
   },
+  "license": "MIT",
+  "repository": "github:oktilon/scanserver",
+  "private": true,
   "dependencies": {
     "express": "^4.16.1"
   }
