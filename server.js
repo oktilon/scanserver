@@ -12,6 +12,7 @@ const environment = process.env.NODE_ENV || 'development';
 const environmentConfig = config[environment];
 const finalConfig = _.merge(defaultConfig, environmentConfig);
 const userEvent = require('./userEvent.js');
+const scanLog = require('./scanLog.js');
 const updateService = require('./updateService.js');
 
 global.gConfig = finalConfig;
@@ -34,12 +35,12 @@ db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='Events';", (
     } else {
         db.exec('CREATE TABLE IF NOT EXISTS Events (id integer, name text, date integer, upd integer, primary key(id))');
         db.exec('CREATE TABLE IF NOT EXISTS Places (ev integer, code text, price real, name text, note text, dt_enter integer, upd integer, primary key(ev, code))');
-        db.exec('CREATE TABLE IF NOT EXISTS Log (ev integer, dt_enter integer, dt_scan integer, code text, name text, result integer)');
+        db.exec('CREATE TABLE IF NOT EXISTS Log (ev integer, dt_enter integer, dt_scan integer, code text, name text, note text, price real, result integer)');
     }
 });
 
 const upd = new updateService(db);
-//upd.updateEvents();
+upd.updateEvents();
 
 const tmBeg = moment().startOf('day').unix();
 const tmEnd = moment().endOf('day').unix();
@@ -47,6 +48,15 @@ db.all(`SELECT * FROM Events WHERE date BETWEEN ? AND ?`, [tmBeg, tmEnd] , (err,
     if(rows && rows.length == 1) {
         global.event = new userEvent(rows[0]);
         console.log(sprintf("Scan #%d %s", global.event.id, global.event.title()));
+    }
+    if(rows && rows.length == 0) {
+
+        db.all(`SELECT * FROM Events WHERE date > ?`, [tmBeg] , (err, rows) => {
+            if(rows && rows.length == 1) {
+                global.event = new userEvent(rows[0]);
+                console.log(sprintf("Scan #%d %s", global.event.id, global.event.title()));
+            }
+        });
     }
 });
 
@@ -107,15 +117,30 @@ app.get('/event', (req, res) => {
     res.send(''+global.event.id);
 });
 
-app.get('/update', (req, res) => {
+app.get('/reload', (req, res) => {
     upd.updateEvents();
     global.update.count = 0;
     global.update.status = 'started';
     res.json(global.update);
 });
 
-app.get('/update/status', (req, res) => {
+app.get('/update', (req, res) => {
+    if(global.event.id) {
+        upd.updatePlaces(global.event);
+        global.update.count = 0;
+        global.update.status = 'started';
+        res.json(global.update);
+    } else {
+        res.json({ status:'no event' });
+    }
+});
+
+app.get('/status', (req, res) => {
     res.json(global.update);
+});
+
+app.get('/info', (req, res) => {
+    res.json({ status:'under construction' });
 });
 
 app.get('/check/:code', (req, res) => {
@@ -137,6 +162,11 @@ app.get('/check/:code', (req, res) => {
         });
     }
 });
+
+app.use(function (err, req, res, next) {
+    console.error(err.stack)
+    res.status(500).send('Something broke!')
+})
 
 app.listen(PORT, HOST);
 console.log(`Running on http://${HOST}:${PORT}`);

@@ -42,24 +42,21 @@ module.exports = class updateService {
                 var ans = JSON.parse(data);
                 _this.now = moment().unix();
                 if(ans && ans.status == 'ok' && ans.data && ans.data.length) {
+                    var tot = ans.data.length;
+                    console.log('readed ' + tot + ' events');
                     db.serialize(() => {
                         var stmt = db.prepare("REPLACE INTO Events (id, name, date, upd) VALUES (?,?,?,?)");
                         ans.data.forEach((event) => {
-                            stmt.run(event.i, event.n, event.d, _this.now);
+                            stmt.run(event.i, event.n, event.d, _this.now, (err) =>{
+                                tot--;
+                                if(tot == 0) {
+                                    global.update.status = 'ok';
+                                    global.update.count = ans.data.length;
+                                    console.log('fin update');
+                                }
+                            });
                         });
                         stmt.finalize();
-                    });
-
-                    var events = [];
-                    db.each("SELECT * FROM Events", (err, row) => {
-                        if(err) console.error("update query error: " + err.message);
-                        else if(row) events.push(new userEvent(row));
-                        return true;
-                    }, (err, cnt) => {
-                        var maxCnt = cnt;
-                        if(cnt) {
-                            _this.updatePlaces(events);
-                        }
                     });
                 }
             });
@@ -70,6 +67,8 @@ module.exports = class updateService {
             global.update.status = 'error: ' + e.message;
         });
 
+        global.update.status = 'updating';
+        global.update.count = 0;
         console.log('run update');
 
         // write data to request body
@@ -77,9 +76,8 @@ module.exports = class updateService {
         req.end();
     }
 
-    updatePlaces(events) {
-        console.log("read places. events left = " + events.length);
-        var ev = events.shift();
+    updatePlaces(ev) {
+        console.log("read places for " + ev.id);
         this.eid = ev.id;
         var url = this.url + 'get_places/' + ev.id + '/' + this.evalHash('places-' + ev.id);
         const options = new URL(url);
@@ -106,20 +104,12 @@ module.exports = class updateService {
                 if(ans && ans.status == 'ok' && max) {
                     var places = ans.data;
                     _this.writePlaces(places, () => {
-                        if(events.length == 0) {
-                            global.update.status = 'ok';
-                            console.log("update end writed", events);
-                        } else {
-                            _this.updatePlaces(events);
-                        }
+                        global.update.status = 'ok';
+                        console.log("update end writed", events);
                     });
                 } else {
-                    if(events.length == 0) {
-                        global.update.status = 'ok';
-                        console.log("update end empty");
-                    } else {
-                        _this.updatePlaces(events);
-                    }
+                    global.update.status = 'ok';
+                    console.log("update end empty");
                 }
             });
         });
@@ -136,7 +126,7 @@ module.exports = class updateService {
         var p = places.shift();
         var _this = this;
         _this.db.run("REPLACE INTO Places (ev, code, price, name, note, upd) VALUES (?,?,?,?,?,?)", [_this.eid, p.c, p.p, p.n, p.x, _this.now], (err) => {
-            if(!err) global.update.count += this.changes;
+            if(!err) global.update.count++;
             if(places.length == 0) {
                 callback();
             } else {
