@@ -18,6 +18,17 @@ module.exports = class userEvent {
         return m.format('dd DD MMM HH:mm');
     }
 
+    calc(db, callback) {
+        var _this = this;
+        db.get("SELECT COUNT(*) tot, SUM((CASE dt_enter WHEN 0 THEN 0 ELSE 1 END)) ent FROM Places WHERE ev = ?", [this.id], (err, row) => {
+            if(row) {
+                this.total = row.tot;
+                this.entered = row.ent;
+            }
+            callback(_this.json());
+        });
+    }
+
     json() {
         return {
             i:this.id,

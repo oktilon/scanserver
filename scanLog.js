@@ -57,19 +57,20 @@ module.exports = class scanLog {
     }
 
     save(db) {
-        db.exec('INSERT INTO Log (ev, dt_enter, dt_scan, code, name, note, price, result, scan)' +
-                ' VALUES (?,?,?,?,?,?,?,?,?)',             this.ev,
-            this.dt_enter,
-            this.dt_scan,
-            this.code,
-            this.name,
-            this.note,
-            this.price,
-            this.result,
-            this.scan
-);
+        db.run('INSERT INTO Log (ev, dt_enter, dt_scan, code, name, note, price, result, scan)' +
+                ' VALUES (?,?,?,?,?,?,?,?,?)',
+                this.ev,
+                this.dt_enter,
+                this.dt_scan,
+                this.code,
+                this.name,
+                this.note,
+                this.price,
+                this.result,
+                this.scan
+        );
         if(this.result == 1) {
-            db.exec('UPDATE INTO Places SET dt_enter = ? WHERE ev = ? AND code = ?', this.dt_enter, this.ev, this.code);
+            db.run('UPDATE Places SET dt_enter = ? WHERE ev = ? AND code = ?', this.dt_enter, this.ev, this.code);
         }
     }
 

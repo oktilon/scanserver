@@ -5,6 +5,7 @@ const express = require('express');
 const sprintf = require('sprintf');
 const md5 = require('md5');
 const moment = require('moment');
+const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const config = require('./config.json');
 const defaultConfig = config.development;
@@ -40,34 +41,41 @@ db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='Events';", (
 });
 
 const upd = new updateService(db);
-upd.updateEvents();
+upd.updateEvents(() => {
+    const tmBeg = moment().startOf('day').unix();
+    const tmEnd = moment().endOf('day').unix();
+    db.all(`SELECT * FROM Events WHERE date BETWEEN ? AND ?`, [tmBeg, tmEnd] , (err, rows) => {
+        console.log(err, rows);
+        if(rows && rows.length == 1) {
+            global.event = new userEvent(rows[0]);
+            startScan();
+        } else if(rows && rows.length == 0) {
+
+            db.all(`SELECT * FROM Events WHERE date > ?`, [tmBeg] , (err, rows) => {
+                //console.log(err, rows);
+                if(rows && rows.length == 1) {
+                    global.event = new userEvent(rows[0]);
+                    startScan();
+                }
+            });
+        }
+    });
+});
 
 function startScan() {
     console.log(sprintf("Scan #%d %s", global.event.id, global.event.title()));
 }
 
-const tmBeg = moment().startOf('day').unix();
-const tmEnd = moment().endOf('day').unix();
-db.all(`SELECT * FROM Events WHERE date BETWEEN ? AND ?`, [tmBeg, tmEnd] , (err, rows) => {
-    console.log(err, rows);
-    if(rows && rows.length == 1) {
-        global.event = new userEvent(rows[0]);
-        startScan();
-    } else if(rows && rows.length == 0) {
-
-        db.all(`SELECT * FROM Events WHERE date > ?`, [tmBeg] , (err, rows) => {
-            //console.log(err, rows);
-            if(rows && rows.length == 1) {
-                global.event = new userEvent(rows[0]);
-                startScan();
-            }
-        });
-    }
-});
-
 // App
 const app = express();
+
+app.use('/res', express.static('public'));
+
 app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname+'/index.html'));
+});
+
+app.get('/list', (req, res) => {
     var events = [];
     const tmBeg = moment().startOf('day').unix();
     const tmEnd = moment().endOf('day').unix();
@@ -119,7 +127,9 @@ app.get('/scan/:eid(\\d+)', (req, res) => {
 });
 
 app.get('/event', (req, res) => {
-    res.json(global.event.json());
+    global.event.calc(db, (json) => {
+        res.json(json);
+    });
 });
 
 app.get('/reload', (req, res) => {
