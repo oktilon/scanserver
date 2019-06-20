@@ -1,5 +1,5 @@
 $(function(){
-    setInterval(updateEvent, 1000);
+    updateEvent();
 });
 
 function updateEvent() {
@@ -15,6 +15,7 @@ function updateEvent() {
                 .removeClass('unk')
                 .addClass('on')
                 .html('online');
+            setTimeout(updateEvent, 1000);
         },
         error: function(err) {
             $('#event').html('');
@@ -23,6 +24,7 @@ function updateEvent() {
                 .removeClass('unk')
                 .addClass('off')
                 .html('offline');
+            setTimeout(updateEvent, 1000);
         }
     });
 }
