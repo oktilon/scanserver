@@ -22,7 +22,7 @@ module.exports = class updateService {
         return md5(sprintf(global.gConfig.ticket_fmt, page, m.format(global.gConfig.ticket_str)));
     }
 
-    updateEvents() {
+    updateEvents(callback) {
         var data = '';
         var url = this.url + 'get_list/' + this.evalHash('list');
         const options = new URL(url);
@@ -53,6 +53,7 @@ module.exports = class updateService {
                                     global.update.status = 'ok';
                                     global.update.count = ans.data.length;
                                     console.log('fin update');
+                                    callback();
                                 }
                             });
                         });
@@ -65,6 +66,7 @@ module.exports = class updateService {
         req.on('error', (e) => {
             console.error(`update error: ${e.message}`);
             global.update.status = 'error: ' + e.message;
+            callback();
         });
 
         global.update.status = 'updating';
@@ -105,7 +107,7 @@ module.exports = class updateService {
                     var places = ans.data;
                     _this.writePlaces(places, () => {
                         global.update.status = 'ok';
-                        console.log("update end writed", events);
+                        console.log("update end writed");
                     });
                 } else {
                     global.update.status = 'ok';
@@ -123,10 +125,27 @@ module.exports = class updateService {
     }
 
     writePlaces(places, callback) {
-        var p = places.shift();
+        var sql = "REPLACE INTO Places (ev, code, price, name, note, upd) VALUES ";
+        var lst = [];
+        var par = [];
+        var cnt = 0;
         var _this = this;
-        _this.db.run("REPLACE INTO Places (ev, code, price, name, note, upd) VALUES (?,?,?,?,?,?)", [_this.eid, p.c, p.p, p.n, p.x, _this.now], (err) => {
-            if(!err) global.update.count++;
+
+        while(places.length > 0 && lst.length < 100) {
+             var p = places.shift();
+             lst.push("(?,?,?,?,?,?)");
+             par = par.concat([_this.eid, p.c, p.p, p.n, p.x, _this.now]);
+             cnt++;
+        }
+        console.error(`write pack of ${lst.length} rows`);
+        sql += lst.join(',');
+        _this.db.run(sql, par, (err) => {
+            console.error(`writed ${err?err.message:'ok'}`);
+            if(!err) global.update.count += cnt;
+            else {
+                global.update.status = err.message;
+                callback();
+            }
             if(places.length == 0) {
                 callback();
             } else {

@@ -9,6 +9,8 @@ module.exports = class userEvent {
         this.name = obj.name || '';
         this.date = obj.date || 0;
         this.upd  = obj.upd || moment().unix();
+        this.total = 0;
+        this.entered = 0;
     }
 
     getDate() {
@@ -20,7 +22,9 @@ module.exports = class userEvent {
         return {
             i:this.id,
             n:this.name,
-            d:this.getDate()
+            d:this.getDate(),
+            t:this.total,
+            e:this.entered
         };
     }
 
